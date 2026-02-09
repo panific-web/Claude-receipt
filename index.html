@@ -199,7 +199,7 @@
         }
 
         // Default Panific Logo - loads from your GitHub repository
-        const defaultLogo = './Panific_Receipt_Generator.png';  // Your uploaded logo
+        const defaultLogo = './panific_logo_3.jpg';  // Your new logo
 
         // Initialize on page load
         window.onload = function() {
@@ -435,19 +435,18 @@
                     format: [80, 200] // POS receipt size (80mm width, auto height)
                 });
 
-                let yPos = 10;
+                let yPos = 8;
                 const pageWidth = 80;
                 const margin = 5;
                 const contentWidth = pageWidth - (margin * 2);
 
-                // Add logo (always present - either default or uploaded)
+                // Add logo with correct aspect ratio (1.26:1)
                 if (logoDataURL) {
-                    // Smaller, well-proportioned logo
-                    const logoWidth = 45;  // Reduced from 50
-                    const logoHeight = 15; // Reduced from 20, better ratio
+                    const logoWidth = 50;  // Width in mm
+                    const logoHeight = logoWidth / 1.26;  // Maintain aspect ratio (1181/936 = 1.26)
                     const logoX = (pageWidth - logoWidth) / 2; // Center it
-                    doc.addImage(logoDataURL, 'PNG', logoX, yPos, logoWidth, logoHeight);
-                    yPos += 18;  // Less space below logo
+                    doc.addImage(logoDataURL, 'JPEG', logoX, yPos, logoWidth, logoHeight);
+                    yPos += logoHeight + 5;  // Add some space below logo
                 }
 
                 // Company details
@@ -487,14 +486,14 @@
                 doc.line(margin, yPos, pageWidth - margin, yPos);
                 yPos += 5;
 
-                // "RECEIVED FROM:" label - Bold, same size as other labels
+                // "RECEIVED FROM:" label - Bold
                 doc.setFont(undefined, 'bold');
                 doc.setFontSize(10);
                 doc.text('RECEIVED FROM:', margin, yPos);
                 yPos += 6;
                 
-                // Customer name - Same size as amount (12pt)
-                doc.setFont(undefined, 'bold');
+                // Customer name - NOT BOLD, same size as amount
+                doc.setFont(undefined, 'normal');  // Changed from bold to normal
                 doc.setFontSize(12);
                 const customerName = document.getElementById('customerName').value;
                 const customerLines = doc.splitTextToSize(customerName, contentWidth);
@@ -506,16 +505,16 @@
                 doc.line(margin, yPos, pageWidth - margin, yPos);
                 yPos += 5;
 
-                // "AMOUNT:" label - Bold, standard size
+                // "AMOUNT:" label - Bold
                 doc.setFont(undefined, 'bold');
                 doc.setFontSize(10);
                 doc.text('AMOUNT:', margin, yPos);
                 yPos += 6;
                 
-                // Amount with thousand separators - Smaller font (12pt, same as customer name)
+                // Amount with thousand separators
                 const amount = parseFloat(document.getElementById('amountNumber').value);
                 const amountWhole = Math.floor(amount);
-                const amountDecimal = (amount - amountWhole).toFixed(2).substring(1); // Gets ".00" part
+                const amountDecimal = (amount - amountWhole).toFixed(2).substring(1);
                 const formattedAmount = formatNumberWithCommas(amountWhole) + amountDecimal;
                 
                 doc.setFontSize(12);
@@ -536,7 +535,7 @@
                 doc.line(margin, yPos, pageWidth - margin, yPos);
                 yPos += 5;
 
-                // "PAYMENT:" label - Bold, same size as other labels
+                // "PAYMENT:" label - Bold
                 doc.setFontSize(10);
                 doc.setFont(undefined, 'bold');
                 const paymentType = document.getElementById('paymentType').value;
