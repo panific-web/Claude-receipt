@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panific Receipt Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
+        
+        .receipt-font {
+            font-family: 'Courier Prime', 'Courier New', monospace;
+        }
+        
+        .signature-text {
+            font-family: 'Brush Script MT', cursive;
+            font-size: 1.5rem;
+            font-style: italic;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+        }
+
+        /* Fix date input on mobile */
+        input[type="date"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            min-height: 48px;
+            font-size: 16px !important; /* Prevents zoom on iOS */
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        /* Prevent zoom on all inputs - iOS fix */
+        input, select, textarea {
+            font-size: 16px !important;
+        }
+
+        .logo-placeholder {
+            width: 100%;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Main Container -->
+    <div class="max-w-2xl mx-auto p-4 pb-24">
+        <!-- Branding Header - Always Visible -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-4 text-center">
+            <div id="logoDisplay" class="mb-4">
+                <div class="logo-placeholder" id="logoPlaceholder">
+                    PANIFIC
+                </div>
+                <img id="logoImage" src="" alt="Company Logo" class="hidden w-full h-20 object-contain">
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">Panific Sales Receipt</h1>
+            <p class="text-sm text-gray-600">📧 info@panific.com</p>
+            <p class="text-sm text-gray-600">📍 Accra - Ghana</p>
+            
+            <!-- Logo Upload Button -->
+            <div class="mt-4">
+                <input type="file" id="logoUpload" accept="image/*" class="hidden">
+                <button onclick="document.getElementById('logoUpload').click()" 
+                        class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm">
+                    Upload Company Logo
+                </button>
+            </div>
+        </div>
+
+        <!-- Receipt Form -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-4">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Receipt Details</h2>
+            
+            <!-- Receipt Number (Auto-generated) -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Receipt Number</label>
+                <input type="text" id="receiptNumber" readonly 
+                       class="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 font-mono">
+            </div>
+
+            <!-- Date (Editable) -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Date *</label>
+                <input type="date" id="receiptDate" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-base">
+            </div>
+
+            <!-- Customer Name -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Customer Name *</label>
+                <input type="text" id="customerName" placeholder="Enter customer name" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Amount in Numbers -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Amount (GH₵) *</label>
+                <input type="number" id="amountNumber" placeholder="0.00" step="0.01" min="0" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Amount in Words (Auto-generated) -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Amount in Words</label>
+                <textarea id="amountWords" readonly rows="2"
+                          class="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"></textarea>
+            </div>
+
+            <!-- Payment Type -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Payment Type *</label>
+                <select id="paymentType" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select payment method</option>
+                    <option value="Momo">Mobile Money (Momo)</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Cheque">Cheque</option>
+                </select>
+            </div>
+
+            <!-- Cheque Number (Conditional) -->
+            <div id="chequeNumberDiv" class="mb-4 hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Cheque Number *</label>
+                <input type="text" id="chequeNumber" placeholder="Enter cheque number"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Salesperson Name -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Salesperson Name *</label>
+                <input type="text" id="salespersonName" placeholder="Your name" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg">
+            <div class="max-w-2xl mx-auto flex gap-3">
+                <button onclick="generatePDF()" 
+                        class="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition shadow-md">
+                    Generate PDF
+                </button>
+                <button id="shareButton" onclick="shareReceipt()" disabled
+                        class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    Share Receipt
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+        let currentPDFBlob = null;
+        let logoDataURL = null;
+
+        // Initialize on page load
+        window.onload = function() {
+            initializeReceipt();
+            setupEventListeners();
+        };
+
+        function initializeReceipt() {
+            // Generate sequential receipt number
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            
+            // Get last receipt number from localStorage
+            const lastReceiptKey = 'lastReceiptNumber';
+            const lastReceiptDate = 'lastReceiptDate';
+            const todayString = `${year}${month}${day}`;
+            
+            let sequenceNumber = 1;
+            const storedDate = localStorage.getItem(lastReceiptDate);
+            
+            if (storedDate === todayString) {
+                // Same day - increment sequence
+                const lastNumber = parseInt(localStorage.getItem(lastReceiptKey) || '0');
+                sequenceNumber = lastNumber + 1;
+            } else {
+                // New day - reset sequence
+                sequenceNumber = 1;
+            }
+            
+            // Format: RCPT-YYYYMMDD-001
+            const receiptNum = `RCPT-${todayString}-${String(sequenceNumber).padStart(3, '0')}`;
+            document.getElementById('receiptNumber').value = receiptNum;
+            
+            // Store for next receipt
+            localStorage.setItem(lastReceiptKey, sequenceNumber);
+            localStorage.setItem(lastReceiptDate, todayString);
+
+            // Set current date
+            document.getElementById('receiptDate').value = `${year}-${month}-${day}`;
+        }
+
+        function setupEventListeners() {
+            // Logo upload handler
+            document.getElementById('logoUpload').addEventListener('change', handleLogoUpload);
+
+            // Amount number input handler
+            document.getElementById('amountNumber').addEventListener('input', function(e) {
+                const amount = parseFloat(e.target.value) || 0;
+                const words = convertAmountToWords(amount);
+                document.getElementById('amountWords').value = words;
+            });
+
+            // Payment type change handler
+            document.getElementById('paymentType').addEventListener('change', function(e) {
+                const chequeDiv = document.getElementById('chequeNumberDiv');
+                const chequeInput = document.getElementById('chequeNumber');
+                
+                if (e.target.value === 'Cheque') {
+                    chequeDiv.classList.remove('hidden');
+                    chequeInput.required = true;
+                } else {
+                    chequeDiv.classList.add('hidden');
+                    chequeInput.required = false;
+                    chequeInput.value = '';
+                }
+            });
+        }
+
+        function handleLogoUpload(e) {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    logoDataURL = event.target.result;
+                    document.getElementById('logoImage').src = logoDataURL;
+                    document.getElementById('logoImage').classList.remove('hidden');
+                    document.getElementById('logoPlaceholder').style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Ghana Cedi Amount to Words Conversion
+        function convertAmountToWords(amount) {
+            if (amount === 0 || amount === '') return '';
+
+            const cedis = Math.floor(amount);
+            const pesewas = Math.round((amount - cedis) * 100);
+
+            let words = '';
+
+            // Convert cedis part
+            if (cedis > 0) {
+                words += numberToWords(cedis) + ' Ghana ' + (cedis === 1 ? 'Cedi' : 'Cedis');
+            }
+
+            // Convert pesewas part (decimal)
+            if (pesewas > 0) {
+                if (cedis > 0) words += ' and ';
+                words += numberToWords(pesewas) + ' ' + (pesewas === 1 ? 'Pesewa' : 'Pesewas');
+            }
+
+            // Add "Only" at the end
+            if (words) {
+                words += ' Only';
+            }
+
+            return words || 'Zero Ghana Cedis Only';
+        }
+
+        function numberToWords(num) {
+            const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+            const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+            const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+
+            if (num === 0) return 'Zero';
+            if (num < 10) return ones[num];
+            if (num < 20) return teens[num - 10];
+            if (num < 100) {
+                return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? ' ' + ones[num % 10] : '');
+            }
+            if (num < 1000) {
+                return ones[Math.floor(num / 100)] + ' Hundred' + 
+                       (num % 100 !== 0 ? ' and ' + numberToWords(num % 100) : '');
+            }
+            if (num < 1000000) {
+                return numberToWords(Math.floor(num / 1000)) + ' Thousand' + 
+                       (num % 1000 !== 0 ? ' ' + numberToWords(num % 1000) : '');
+            }
+
+            return num.toString();
+        }
+
+        function validateForm() {
+            const customerName = document.getElementById('customerName').value.trim();
+            const amount = parseFloat(document.getElementById('amountNumber').value);
+            const paymentType = document.getElementById('paymentType').value;
+            const salesperson = document.getElementById('salespersonName').value.trim();
+            const chequeNumber = document.getElementById('chequeNumber').value.trim();
+
+            if (!customerName) {
+                alert('Please enter customer name');
+                return false;
+            }
+            if (!amount || amount <= 0) {
+                alert('Please enter a valid amount');
+                return false;
+            }
+            if (!paymentType) {
+                alert('Please select payment type');
+                return false;
+            }
+            if (paymentType === 'Cheque' && !chequeNumber) {
+                alert('Please enter cheque number');
+                return false;
+            }
+            if (!salesperson) {
+                alert('Please enter salesperson name');
+                return false;
+            }
+
+            return true;
+        }
+
+        function formatNumberWithCommas(number) {
+            return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        function formatDateForDisplay(dateInput) {
+            const dateObj = new Date(dateInput + 'T00:00:00');
+            return dateObj.toLocaleDateString('en-GB', { 
+                day: '2-digit', 
+                month: 'long', 
+                year: 'numeric' 
+            });
+        }
+
+        async function generatePDF() {
+            if (!validateForm()) return;
+
+            try {
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: [80, 200] // POS receipt size (80mm width, auto height)
+                });
+
+                let yPos = 10;
+                const pageWidth = 80;
+                const margin = 5;
+                const contentWidth = pageWidth - (margin * 2);
+
+                // Add logo or company name
+                if (logoDataURL) {
+                    doc.addImage(logoDataURL, 'PNG', 25, yPos, 30, 15);
+                    yPos += 20;
+                } else {
+                    doc.setFontSize(16);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('PANIFIC', pageWidth / 2, yPos, { align: 'center' });
+                    yPos += 8;
+                }
+
+                // Company details
+                doc.setFontSize(8);
+                doc.setFont(undefined, 'normal');
+                doc.text('info@panific.com', pageWidth / 2, yPos, { align: 'center' });
+                yPos += 4;
+                doc.text('Accra - Ghana', pageWidth / 2, yPos, { align: 'center' });
+                yPos += 8;
+
+                // Separator line
+                doc.setLineWidth(0.5);
+                doc.line(margin, yPos, pageWidth - margin, yPos);
+                yPos += 5;
+
+                // Receipt title
+                doc.setFontSize(12);
+                doc.setFont(undefined, 'bold');
+                doc.text('SALES RECEIPT', pageWidth / 2, yPos, { align: 'center' });
+                yPos += 8;
+
+                // Receipt details
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'normal');
+                
+                const receiptNum = document.getElementById('receiptNumber').value;
+                const dateInput = document.getElementById('receiptDate').value;
+                const formattedDate = formatDateForDisplay(dateInput);
+
+                doc.text(`Receipt No: ${receiptNum}`, margin, yPos);
+                yPos += 5;
+                doc.text(`Date: ${formattedDate}`, margin, yPos);
+                yPos += 8;
+
+                // Separator
+                doc.line(margin, yPos, pageWidth - margin, yPos);
+                yPos += 5;
+
+                // "RECEIVED FROM:" label - Bold, same size as other labels
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(10);
+                doc.text('RECEIVED FROM:', margin, yPos);
+                yPos += 6;
+                
+                // Customer name - Bigger font
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(13);
+                const customerName = document.getElementById('customerName').value;
+                const customerLines = doc.splitTextToSize(customerName, contentWidth);
+                doc.text(customerLines, margin, yPos);
+                yPos += (customerLines.length * 6) + 4;
+
+                // Separator
+                doc.line(margin, yPos, pageWidth - margin, yPos);
+                yPos += 5;
+
+                // "AMOUNT:" label - Bold, standard size
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(10);
+                doc.text('AMOUNT:', margin, yPos);
+                yPos += 6;
+                
+                // Amount with thousand separators - Smaller font
+                const amount = parseFloat(document.getElementById('amountNumber').value);
+                const amountWhole = Math.floor(amount);
+                const amountDecimal = (amount - amountWhole).toFixed(2).substring(1); // Gets ".00" part
+                const formattedAmount = formatNumberWithCommas(amountWhole) + amountDecimal;
+                
+                doc.setFontSize(12);
+                doc.setFont(undefined, 'bold');
+                doc.text(`GHS ${formattedAmount}`, pageWidth / 2, yPos, { align: 'center' });
+                yPos += 8;
+
+                // Amount in words with "Only" at end
+                doc.setFontSize(8);
+                doc.setFont(undefined, 'italic');
+                const amountWords = document.getElementById('amountWords').value;
+                const wordsLines = doc.splitTextToSize(amountWords, contentWidth);
+                doc.text(wordsLines, margin, yPos);
+                yPos += (wordsLines.length * 4) + 5;
+
+                // Separator
+                doc.line(margin, yPos, pageWidth - margin, yPos);
+                yPos += 5;
+
+                // "PAYMENT:" label - Bold, same size as other labels
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'bold');
+                const paymentType = document.getElementById('paymentType').value;
+                doc.text('PAYMENT:', margin, yPos);
+                yPos += 5;
+                
+                doc.setFont(undefined, 'normal');
+                doc.text(paymentType, margin, yPos);
+                yPos += 5;
+
+                if (paymentType === 'Cheque') {
+                    const chequeNum = document.getElementById('chequeNumber').value;
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Cheque No:', margin, yPos);
+                    doc.setFont(undefined, 'normal');
+                    doc.text(chequeNum, margin + 25, yPos);
+                    yPos += 5;
+                }
+
+                yPos += 3;
+                doc.line(margin, yPos, pageWidth - margin, yPos);
+                yPos += 8;
+
+                // Signature
+                doc.setFont(undefined, 'italic');
+                doc.setFontSize(10);
+                const salesperson = document.getElementById('salespersonName').value;
+                doc.text(salesperson, margin, yPos);
+                yPos += 4;
+                doc.setFontSize(7);
+                doc.setFont(undefined, 'normal');
+                doc.text('Authorized Sales Rep', margin, yPos);
+                yPos += 8;
+
+                // Footer
+                doc.setFontSize(7);
+                doc.text('Thank you for your business!', pageWidth / 2, yPos, { align: 'center' });
+                yPos += 4;
+                doc.setFontSize(6);
+                doc.text('Generated by Panific Receipt System', pageWidth / 2, yPos, { align: 'center' });
+
+                // Save as blob
+                currentPDFBlob = doc.output('blob');
+                
+                // Enable share button
+                document.getElementById('shareButton').disabled = false;
+                
+                alert('Receipt generated successfully! You can now share it.');
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Error generating PDF. Please try again.');
+            }
+        }
+
+        async function shareReceipt() {
+            if (!currentPDFBlob) {
+                alert('Please generate the receipt first');
+                return;
+            }
+
+            const fileName = `Receipt_${document.getElementById('receiptNumber').value}.pdf`;
+            const file = new File([currentPDFBlob], fileName, { type: 'application/pdf' });
+
+            // Check if Web Share API is supported
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        title: 'Sales Receipt',
+                        text: `Receipt for ${document.getElementById('customerName').value}`,
+                        files: [file]
+                    });
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        console.error('Error sharing:', error);
+                        fallbackShare(currentPDFBlob, fileName);
+                    }
+                }
+            } else {
+                fallbackShare(currentPDFBlob, fileName);
+            }
+        }
+
+        function fallbackShare(blob, fileName) {
+            // Fallback: Download the file
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('Receipt downloaded! You can now share it via WhatsApp or Email manually.');
+        }
+    </script>
+</body>
+</html>
