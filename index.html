@@ -49,7 +49,9 @@
 
         .logo-placeholder {
             width: 100%;
-            height: 80px;
+            max-width: 280px;
+            height: 56px;
+            margin: 0 auto;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             align-items: center;
@@ -66,11 +68,11 @@
     <div class="max-w-2xl mx-auto p-4 pb-24">
         <!-- Branding Header - Always Visible -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-4 text-center">
-            <div id="logoDisplay" class="mb-4">
+            <div id="logoDisplay" class="mb-3">
                 <div class="logo-placeholder" id="logoPlaceholder">
                     PANIFIC
                 </div>
-                <img id="logoImage" src="" alt="Company Logo" class="hidden w-full h-20 object-contain">
+                <img id="logoImage" src="" alt="Company Logo" class="hidden w-auto h-14 mx-auto object-contain">
             </div>
             <h1 class="text-2xl font-bold text-gray-800 mb-2">Panific Sales Receipt</h1>
             <p class="text-sm text-gray-600">📧 info@panific.com</p>
@@ -379,6 +381,19 @@
             return num.toString();
         }
 
+        function formatNumberWithCommas(number) {
+            return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        function formatDateForDisplay(dateInput) {
+            const dateObj = new Date(dateInput + 'T00:00:00');
+            return dateObj.toLocaleDateString('en-GB', { 
+                day: '2-digit', 
+                month: 'long', 
+                year: 'numeric' 
+            });
+        }
+
         function validateForm() {
             const customerName = document.getElementById('customerName').value.trim();
             const amount = parseFloat(document.getElementById('amountNumber').value);
@@ -410,19 +425,6 @@
             return true;
         }
 
-        function formatNumberWithCommas(number) {
-            return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        }
-
-        function formatDateForDisplay(dateInput) {
-            const dateObj = new Date(dateInput + 'T00:00:00');
-            return dateObj.toLocaleDateString('en-GB', { 
-                day: '2-digit', 
-                month: 'long', 
-                year: 'numeric' 
-            });
-        }
-
         async function generatePDF() {
             if (!validateForm()) return;
 
@@ -440,13 +442,12 @@
 
                 // Add logo (always present - either default or uploaded)
                 if (logoDataURL) {
-                    // Calculate proper aspect ratio for logo
-                    // Your logo appears to be wide, so let's use more width
-                    const logoWidth = 50;  // Wider to fit the 80mm receipt
-                    const logoHeight = 20; // Proper height to avoid condensing
+                    // Smaller, well-proportioned logo
+                    const logoWidth = 45;  // Reduced from 50
+                    const logoHeight = 15; // Reduced from 20, better ratio
                     const logoX = (pageWidth - logoWidth) / 2; // Center it
                     doc.addImage(logoDataURL, 'PNG', logoX, yPos, logoWidth, logoHeight);
-                    yPos += 24;
+                    yPos += 18;  // Less space below logo
                 }
 
                 // Company details
