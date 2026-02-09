@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Sales Receipt Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #receipt-preview, #receipt-preview * {
+                visibility: visible;
+            }
+            #receipt-preview {
+                position: absolute;
+                left: 0;
+                top: 0;
+            }
+        }
+        
+        .signature-text {
+            font-family: 'Brush Script MT', cursive;
+            font-size: 1.5rem;
+            font-style: italic;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            ring: 2px;
+            ring-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Main Container -->
+    <div class="max-w-2xl mx-auto p-4 pb-20">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-4">
+            <h1 class="text-2xl font-bold text-gray-800 mb-4">Sales Receipt Generator</h1>
+            <p class="text-sm text-gray-600 mb-4">📧 info@panific.com</p>
+            
+            <!-- Logo Upload Section -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Company Logo</label>
+                <div class="flex items-center gap-3">
+                    <input type="file" id="logoUpload" accept="image/*" class="hidden">
+                    <button onclick="document.getElementById('logoUpload').click()" 
+                            class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm">
+                        Upload Logo
+                    </button>
+                    <div id="logoPreview" class="hidden">
+                        <img id="logoImage" src="" alt="Logo" class="h-16 object-contain">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Receipt Form -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-4">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Receipt Details</h2>
+            
+            <!-- Receipt Number (Auto-generated) -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Receipt Number</label>
+                <input type="text" id="receiptNumber" readonly 
+                       class="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 font-mono">
+            </div>
+
+            <!-- Date (Editable) -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Date *</label>
+                <input type="date" id="receiptDate" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Customer Name -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Customer Name *</label>
+                <input type="text" id="customerName" placeholder="Enter customer name" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Amount in Numbers -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Amount (GH₵) *</label>
+                <input type="number" id="amountNumber" placeholder="0.00" step="0.01" min="0" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-lg">
+            </div>
+
+            <!-- Amount in Words (Auto-generated) -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Amount in Words</label>
+                <textarea id="amountWords" readonly rows="2"
+                          class="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"></textarea>
+            </div>
+
+            <!-- Payment Type -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Payment Type *</label>
+                <select id="paymentType" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select payment method</option>
+                    <option value="Momo">Mobile Money (Momo)</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Cheque">Cheque</option>
+                </select>
+            </div>
+
+            <!-- Cheque Number (Conditional - only shows when Cheque is selected) -->
+            <div id="chequeNumberDiv" class="mb-4 hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Cheque Number *</label>
+                <input type="text" id="chequeNumber" placeholder="Enter cheque number"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Salesperson Name for Signature -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Salesperson Name *</label>
+                <input type="text" id="salespersonName" placeholder="Your name" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg">
+            <div class="max-w-2xl mx-auto flex gap-3">
+                <button onclick="generatePDF()" 
+                        class="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition shadow-md">
+                    Generate PDF
+                </button>
+                <button id="shareButton" onclick="shareReceipt()" disabled
+                        class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    Share Receipt
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Receipt Preview for PDF Generation -->
+    <div id="receipt-preview" style="display: none;">
+        <div style="width: 800px; background: white; font-family: Arial, sans-serif; padding: 40px; box-sizing: border-box;">
+            <!-- Header with Logo -->
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #1f2937; padding-bottom: 20px;">
+                <div id="pdfLogoContainer" style="margin-bottom: 15px; display: none;">
+                    <img id="pdfLogo" src="" alt="Company Logo" style="max-height: 100px; max-width: 300px;">
+                </div>
+                <h1 style="font-size: 36px; font-weight: bold; color: #1f2937; margin: 0; letter-spacing: 2px;">SALES RECEIPT</h1>
+                <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 14px;">info@panific.com</p>
+            </div>
+
+            <!-- Receipt Details -->
+            <div style="margin-bottom: 30px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px; width: 150px;"><strong>Receipt Number:</strong></td>
+                        <td style="padding: 8px 0; color: #1f2937; font-size: 14px;" id="pdfReceiptNo"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px;"><strong>Date:</strong></td>
+                        <td style="padding: 8px 0; color: #1f2937; font-size: 14px;" id="pdfDate"></td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Customer Info -->
+            <div style="margin-bottom: 30px; background-color: #f9fafb; padding: 20px; border-radius: 8px;">
+                <p style="color: #6b7280; font-size: 12px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">Received From</p>
+                <p style="font-size: 20px; color: #1f2937; margin: 0; font-weight: 600;" id="pdfCustomerName"></p>
+            </div>
+
+            <!-- Amount Section -->
+            <div style="margin-bottom: 30px; border: 2px solid #e5e7eb; padding: 25px; border-radius: 8px;">
+                <div style="margin-bottom: 20px;">
+                    <p style="color: #6b7280; font-size: 12px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">Amount Received</p>
+                    <p style="font-size: 42px; font-weight: bold; color: #059669; margin: 0;">GH₵ <span id="pdfAmount"></span></p>
+                </div>
+                <div style="border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                    <p style="color: #6b7280; font-size: 12px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">In Words</p>
+                    <p style="font-size: 16px; color: #1f2937; margin: 0; font-style: italic; line-height: 1.6;" id="pdfAmountWords"></p>
+                </div>
+            </div>
+
+            <!-- Payment Details -->
+            <div style="margin-bottom: 40px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px; width: 150px;"><strong>Payment Method:</strong></td>
+                        <td style="padding: 8px 0; color: #1f2937; font-size: 14px;" id="pdfPaymentType"></td>
+                    </tr>
+                    <tr id="pdfChequeRow" style="display: none;">
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px;"><strong>Cheque Number:</strong></td>
+                        <td style="padding: 8px 0; color: #1f2937; font-size: 14px;" id="pdfChequeNumber"></td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Signature Section -->
+            <div style="margin-top: 80px;">
+                <div style="border-top: 2px solid #1f2937; width: 350px; padding-top: 10px;">
+                    <p id="pdfSignature" style="font-family: 'Brush Script MT', cursive; font-size: 28px; font-style: italic; margin: 0 0 5px 0; color: #1f2937;"></p>
+                    <p style="font-size: 12px; color: #6b7280; margin: 0;">Authorized Sales Representative</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="margin-top: 100px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                <p style="color: #9ca3af; font-size: 12px; margin: 0 0 5px 0;">Thank you for your business!</p>
+                <p style="color: #d1d5db; font-size: 10px; margin: 0;">This is a computer-generated receipt and is valid without signature.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentPDFBlob = null;
+        let logoDataURL = null;
+
+        // Initialize on page load
+        window.onload = function() {
+            initializeReceipt();
+            setupEventListeners();
+        };
+
+        function initializeReceipt() {
+            // Generate receipt number
+            const timestamp = Date.now();
+            const receiptNum = `RCPT-2026-${String(timestamp).slice(-6)}`;
+            document.getElementById('receiptNumber').value = receiptNum;
+
+            // Set current date in YYYY-MM-DD format for date input
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            document.getElementById('receiptDate').value = `${year}-${month}-${day}`;
+        }
+
+        function setupEventListeners() {
+            // Logo upload handler
+            document.getElementById('logoUpload').addEventListener('change', handleLogoUpload);
+
+            // Amount number input handler
+            document.getElementById('amountNumber').addEventListener('input', function(e) {
+                const amount = parseFloat(e.target.value) || 0;
+                const words = convertAmountToWords(amount);
+                document.getElementById('amountWords').value = words;
+            });
+
+            // Payment type change handler
+            document.getElementById('paymentType').addEventListener('change', function(e) {
+                const chequeDiv = document.getElementById('chequeNumberDiv');
+                const chequeInput = document.getElementById('chequeNumber');
+                
+                if (e.target.value === 'Cheque') {
+                    chequeDiv.classList.remove('hidden');
+                    chequeInput.required = true;
+                } else {
+                    chequeDiv.classList.add('hidden');
+                    chequeInput.required = false;
+                    chequeInput.value = '';
+                }
+            });
+        }
+
+        function handleLogoUpload(e) {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    logoDataURL = event.target.result;
+                    document.getElementById('logoImage').src = logoDataURL;
+                    document.getElementById('logoPreview').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Ghana Cedi Amount to Words Conversion
+        function convertAmountToWords(amount) {
+            if (amount === 0) return 'Zero Ghana Cedis';
+
+            const cedis = Math.floor(amount);
+            const pesewas = Math.round((amount - cedis) * 100);
+
+            let words = '';
+
+            // Convert cedis
+            if (cedis > 0) {
+                words += numberToWords(cedis) + ' Ghana ' + (cedis === 1 ? 'Cedi' : 'Cedis');
+            }
+
+            // Convert pesewas
+            if (pesewas > 0) {
+                if (cedis > 0) words += ' and ';
+                words += numberToWords(pesewas) + ' ' + (pesewas === 1 ? 'Pesewa' : 'Pesewas');
+            }
+
+            return words;
+        }
+
+        function numberToWords(num) {
+            const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+            const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+            const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+
+            if (num === 0) return 'Zero';
+
+            if (num < 10) return ones[num];
+            if (num < 20) return teens[num - 10];
+            if (num < 100) {
+                return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? ' ' + ones[num % 10] : '');
+            }
+            if (num < 1000) {
+                return ones[Math.floor(num / 100)] + ' Hundred' + 
+                       (num % 100 !== 0 ? ' and ' + numberToWords(num % 100) : '');
+            }
+            if (num < 1000000) {
+                return numberToWords(Math.floor(num / 1000)) + ' Thousand' + 
+                       (num % 1000 !== 0 ? ' ' + numberToWords(num % 1000) : '');
+            }
+            if (num < 1000000000) {
+                return numberToWords(Math.floor(num / 1000000)) + ' Million' + 
+                       (num % 1000000 !== 0 ? ' ' + numberToWords(num % 1000000) : '');
+            }
+
+            return num.toString();
+        }
+
+        function validateForm() {
+            const customerName = document.getElementById('customerName').value.trim();
+            const amount = parseFloat(document.getElementById('amountNumber').value);
+            const paymentType = document.getElementById('paymentType').value;
+            const salesperson = document.getElementById('salespersonName').value.trim();
+            const chequeNumber = document.getElementById('chequeNumber').value.trim();
+
+            if (!customerName) {
+                alert('Please enter customer name');
+                return false;
+            }
+            if (!amount || amount <= 0) {
+                alert('Please enter a valid amount');
+                return false;
+            }
+            if (!paymentType) {
+                alert('Please select payment type');
+                return false;
+            }
+            if (paymentType === 'Cheque' && !chequeNumber) {
+                alert('Please enter cheque number');
+                return false;
+            }
+            if (!salesperson) {
+                alert('Please enter salesperson name');
+                return false;
+            }
+
+            return true;
+        }
+
+        async function generatePDF() {
+            if (!validateForm()) return;
+
+            // Format date nicely for display
+            const dateInput = document.getElementById('receiptDate').value;
+            const dateObj = new Date(dateInput + 'T00:00:00');
+            const formattedDate = dateObj.toLocaleDateString('en-GB', { 
+                day: '2-digit', 
+                month: 'long', 
+                year: 'numeric' 
+            });
+
+            // Populate PDF preview
+            document.getElementById('pdfReceiptNo').textContent = document.getElementById('receiptNumber').value;
+            document.getElementById('pdfDate').textContent = formattedDate;
+            document.getElementById('pdfCustomerName').textContent = document.getElementById('customerName').value;
+            document.getElementById('pdfAmount').textContent = parseFloat(document.getElementById('amountNumber').value).toFixed(2);
+            document.getElementById('pdfAmountWords').textContent = document.getElementById('amountWords').value;
+            
+            const paymentType = document.getElementById('paymentType').value;
+            document.getElementById('pdfPaymentType').textContent = paymentType;
+            
+            // Handle cheque number if payment type is Cheque
+            if (paymentType === 'Cheque') {
+                document.getElementById('pdfChequeNumber').textContent = document.getElementById('chequeNumber').value;
+                document.getElementById('pdfChequeRow').style.display = 'table-row';
+            } else {
+                document.getElementById('pdfChequeRow').style.display = 'none';
+            }
+            
+            document.getElementById('pdfSignature').textContent = document.getElementById('salespersonName').value;
+
+            // Handle logo
+            if (logoDataURL) {
+                document.getElementById('pdfLogo').src = logoDataURL;
+                document.getElementById('pdfLogoContainer').style.display = 'block';
+            } else {
+                document.getElementById('pdfLogoContainer').style.display = 'none';
+            }
+
+            const element = document.getElementById('receipt-preview');
+            element.style.display = 'block';
+
+            const opt = {
+                margin: [10, 10, 10, 10],
+                filename: `Receipt_${document.getElementById('receiptNumber').value}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { 
+                    scale: 2, 
+                    useCORS: true,
+                    logging: false,
+                    letterRendering: true
+                },
+                jsPDF: { 
+                    unit: 'mm', 
+                    format: 'a4', 
+                    orientation: 'portrait',
+                    compress: true
+                }
+            };
+
+            try {
+                // Generate PDF and get blob
+                const pdf = await html2pdf().set(opt).from(element).output('blob');
+                currentPDFBlob = pdf;
+                
+                // Hide preview
+                element.style.display = 'none';
+                
+                // Enable share button
+                document.getElementById('shareButton').disabled = false;
+                
+                alert('Receipt generated successfully! You can now share it.');
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Error generating PDF. Please try again.');
+                element.style.display = 'none';
+            }
+        }
+
+        async function shareReceipt() {
+            if (!currentPDFBlob) {
+                alert('Please generate the receipt first');
+                return;
+            }
+
+            const fileName = `Receipt_${document.getElementById('receiptNumber').value}.pdf`;
+            const file = new File([currentPDFBlob], fileName, { type: 'application/pdf' });
+
+            // Check if Web Share API is supported
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        title: 'Sales Receipt',
+                        text: `Receipt for ${document.getElementById('customerName').value}`,
+                        files: [file]
+                    });
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        console.error('Error sharing:', error);
+                        fallbackShare(currentPDFBlob, fileName);
+                    }
+                }
+            } else {
+                fallbackShare(currentPDFBlob, fileName);
+            }
+        }
+
+        function fallbackShare(blob, fileName) {
+            // Fallback: Download the file
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('Receipt downloaded! You can now share it via WhatsApp or Email manually.');
+        }
+
+        // Reset form function
+        function resetForm() {
+            document.getElementById('customerName').value = '';
+            document.getElementById('amountNumber').value = '';
+            document.getElementById('amountWords').value = '';
+            document.getElementById('paymentType').value = '';
+            initializeReceipt();
+            currentPDFBlob = null;
+            document.getElementById('shareButton').disabled = true;
+        }
+    </script>
+</body>
+</html>
