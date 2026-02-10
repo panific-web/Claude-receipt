@@ -6,6 +6,7 @@
     <title>Panific Receipt Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -77,15 +78,6 @@
             <h1 class="text-2xl font-bold text-gray-800 mb-2">Panific Sales Receipt</h1>
             <p class="text-sm text-gray-600">📧 info@panific.com</p>
             <p class="text-sm text-gray-600">📍 Accra - Ghana</p>
-            
-            <!-- Logo Upload Button -->
-            <div class="mt-4">
-                <input type="file" id="logoUpload" accept="image/*" class="hidden">
-                <button onclick="document.getElementById('logoUpload').click()" 
-                        class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm">
-                    Change Company Logo
-                </button>
-            </div>
         </div>
 
         <!-- Receipt Form -->
@@ -169,6 +161,9 @@
         </div>
     </div>
 
+    <!-- Hidden QR Code Generator -->
+    <div id="qrCodeContainer" style="display: none;"></div>
+
     <script>
         const { jsPDF } = window.jspdf;
         let currentPDFBlob = null;
@@ -199,7 +194,7 @@
         }
 
         // Default Panific Logo - loads from your GitHub repository
-        const defaultLogo = './panific_logo_3.png';  // Changed to .png
+        const defaultLogo = './panific_logo_3.png';
 
         // Initialize on page load
         window.onload = function() {
@@ -290,9 +285,6 @@
         }
 
         function setupEventListeners() {
-            // Logo upload handler
-            document.getElementById('logoUpload').addEventListener('change', handleLogoUpload);
-
             // Amount number input handler
             document.getElementById('amountNumber').addEventListener('input', function(e) {
                 const amount = parseFloat(e.target.value) || 0;
@@ -316,18 +308,56 @@
             });
         }
 
-        function handleLogoUpload(e) {
-            const file = e.target.files[0];
-            if (file && file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    logoDataURL = event.target.result;
-                    document.getElementById('logoImage').src = logoDataURL;
-                    document.getElementById('logoImage').classList.remove('hidden');
-                    document.getElementById('logoPlaceholder').style.display = 'none';
-                };
-                reader.readAsDataURL(file);
+        // Generate Verification Code (4 groups of 4 alphanumeric characters)
+        function generateVerificationCode(receiptNum, amount, date) {
+            // Create a hash-like code from receipt details
+            const str = `${receiptNum}-${amount}-${date}-PANIFIC`;
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash = hash & hash; // Convert to 32bit integer
             }
+            
+            // Convert to alphanumeric code
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluding confusing chars like 0, O, 1, I
+            let code = '';
+            let absHash = Math.abs(hash);
+            
+            for (let i = 0; i < 16; i++) {
+                code += chars[absHash % chars.length];
+                absHash = Math.floor(absHash / chars.length);
+                if (absHash === 0) absHash = Math.abs(hash * (i + 1));
+            }
+            
+            // Format as XXXX-XXXX-XXXX-XXXX
+            return code.match(/.{1,4}/g).join('-');
+        }
+
+        // Generate QR Code as base64 image
+        function generateQRCode(data) {
+            return new Promise((resolve) => {
+                const container = document.getElementById('qrCodeContainer');
+                container.innerHTML = ''; // Clear previous QR code
+                
+                const qr = new QRCode(container, {
+                    text: data,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+                
+                // Wait for QR code to render, then convert to base64
+                setTimeout(() => {
+                    const canvas = container.querySelector('canvas');
+                    if (canvas) {
+                        resolve(canvas.toDataURL('image/png'));
+                    } else {
+                        resolve(null);
+                    }
+                }, 100);
+            });
         }
 
         // Ghana Cedi Amount to Words Conversion
@@ -432,7 +462,7 @@
                 const doc = new jsPDF({
                     orientation: 'portrait',
                     unit: 'mm',
-                    format: [80, 200] // POS receipt size (80mm width, auto height)
+                    format: [80, 220] // Increased height for QR code
                 });
 
                 let yPos = 8;
@@ -442,11 +472,11 @@
 
                 // Add logo with correct aspect ratio (1.26:1)
                 if (logoDataURL) {
-                    const logoWidth = 50;  // Width in mm
-                    const logoHeight = logoWidth / 1.26;  // Maintain aspect ratio (1181/936 = 1.26)
-                    const logoX = (pageWidth - logoWidth) / 2; // Center it
+                    const logoWidth = 50;
+                    const logoHeight = logoWidth / 1.26;
+                    const logoX = (pageWidth - logoWidth) / 2;
                     doc.addImage(logoDataURL, 'PNG', logoX, yPos, logoWidth, logoHeight);
-                    yPos += logoHeight + 5;  // Add some space below logo
+                    yPos += logoHeight + 5;
                 }
 
                 // Company details
@@ -486,14 +516,14 @@
                 doc.line(margin, yPos, pageWidth - margin, yPos);
                 yPos += 5;
 
-                // "RECEIVED FROM:" label - Bold
+                // "RECEIVED FROM:" label
                 doc.setFont(undefined, 'bold');
                 doc.setFontSize(10);
                 doc.text('RECEIVED FROM:', margin, yPos);
                 yPos += 6;
                 
-                // Customer name - NOT BOLD, same size as amount
-                doc.setFont(undefined, 'normal');  // Not bold
+                // Customer name
+                doc.setFont(undefined, 'normal');
                 doc.setFontSize(12);
                 const customerName = document.getElementById('customerName').value;
                 const customerLines = doc.splitTextToSize(customerName, contentWidth);
@@ -505,7 +535,7 @@
                 doc.line(margin, yPos, pageWidth - margin, yPos);
                 yPos += 5;
 
-                // "AMOUNT:" label - Bold
+                // "AMOUNT:" label
                 doc.setFont(undefined, 'bold');
                 doc.setFontSize(10);
                 doc.text('AMOUNT:', margin, yPos);
@@ -522,7 +552,7 @@
                 doc.text(`GHS ${formattedAmount}`, pageWidth / 2, yPos, { align: 'center' });
                 yPos += 8;
 
-                // Amount in words with "Only" at end
+                // Amount in words
                 doc.setFontSize(8);
                 doc.setFont(undefined, 'italic');
                 const amountWords = document.getElementById('amountWords').value;
@@ -535,7 +565,7 @@
                 doc.line(margin, yPos, pageWidth - margin, yPos);
                 yPos += 5;
 
-                // "PAYMENT:" label - Bold
+                // "PAYMENT:" label
                 doc.setFontSize(10);
                 doc.setFont(undefined, 'bold');
                 const paymentType = document.getElementById('paymentType').value;
@@ -560,6 +590,45 @@
                 doc.line(margin, yPos, pageWidth - margin, yPos);
                 yPos += 8;
 
+                // Generate verification code
+                const verificationCode = generateVerificationCode(receiptNum, amount, dateInput);
+                
+                // Generate QR Code data
+                const qrData = JSON.stringify({
+                    receipt: receiptNum,
+                    date: dateInput,
+                    customer: customerName,
+                    amount: amount,
+                    payment: paymentType,
+                    verification: verificationCode,
+                    issuer: 'Panific',
+                    verify_url: `https://panific-web.github.io/verify?code=${verificationCode}`
+                });
+
+                // Generate and add QR code
+                const qrCodeImage = await generateQRCode(qrData);
+                if (qrCodeImage) {
+                    const qrSize = 30; // 30mm QR code
+                    const qrX = (pageWidth - qrSize) / 2;
+                    doc.addImage(qrCodeImage, 'PNG', qrX, yPos, qrSize, qrSize);
+                    yPos += qrSize + 5;
+                }
+
+                // Verification code
+                doc.setFontSize(7);
+                doc.setFont(undefined, 'normal');
+                doc.text('Verification Code:', pageWidth / 2, yPos, { align: 'center' });
+                yPos += 4;
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'bold');
+                doc.text(verificationCode, pageWidth / 2, yPos, { align: 'center' });
+                yPos += 8;
+
+                // Separator
+                doc.setLineWidth(0.2);
+                doc.line(margin, yPos, pageWidth - margin, yPos);
+                yPos += 6;
+
                 // Signature
                 doc.setFont(undefined, 'italic');
                 doc.setFontSize(10);
@@ -576,7 +645,7 @@
                 doc.text('Thank you for your business!', pageWidth / 2, yPos, { align: 'center' });
                 yPos += 4;
                 doc.setFontSize(6);
-                doc.text('Generated by Panific Receipt System', pageWidth / 2, yPos, { align: 'center' });
+                doc.text('Scan QR code to verify receipt authenticity', pageWidth / 2, yPos, { align: 'center' });
 
                 // Save as blob
                 currentPDFBlob = doc.output('blob');
