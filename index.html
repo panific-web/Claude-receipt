@@ -199,7 +199,7 @@
         }
 
         // Default Panific Logo - loads from your GitHub repository
-        const defaultLogo = './panific_logo_3.png';  // Your new logo
+        const defaultLogo = './panific_logo_3.png';  // Changed to .png
 
         // Initialize on page load
         window.onload = function() {
@@ -445,7 +445,7 @@
                     const logoWidth = 50;  // Width in mm
                     const logoHeight = logoWidth / 1.26;  // Maintain aspect ratio (1181/936 = 1.26)
                     const logoX = (pageWidth - logoWidth) / 2; // Center it
-                    doc.addImage(logoDataURL, 'JPEG', logoX, yPos, logoWidth, logoHeight);
+                    doc.addImage(logoDataURL, 'PNG', logoX, yPos, logoWidth, logoHeight);
                     yPos += logoHeight + 5;  // Add some space below logo
                 }
 
@@ -493,7 +493,7 @@
                 yPos += 6;
                 
                 // Customer name - NOT BOLD, same size as amount
-                doc.setFont(undefined, 'normal');  // Changed from bold to normal
+                doc.setFont(undefined, 'normal');  // Not bold
                 doc.setFontSize(12);
                 const customerName = document.getElementById('customerName').value;
                 const customerLines = doc.splitTextToSize(customerName, contentWidth);
