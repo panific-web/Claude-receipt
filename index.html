@@ -74,7 +74,7 @@
                 </div>
                 <img id="logoImage" src="" alt="Company Logo" class="hidden w-auto h-14 mx-auto object-contain">
             </div>
-            <h1 class="text-2xl font-bold text-gray-800 mb-2">Panific Sales Receipt</h1>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">Panific Payment Receipt</h1>
             <p class="text-sm text-gray-600">📧 info@panific.com</p>
             <p class="text-sm text-gray-600">📍 Accra - Ghana</p>
         </div>
@@ -461,10 +461,10 @@
                 doc.line(margin, yPos, pageWidth - margin, yPos);
                 yPos += 5;
 
-                // Receipt title
+                // Receipt title - CHANGED TO "PAYMENT RECEIPT"
                 doc.setFontSize(12);
                 doc.setFont(undefined, 'bold');
-                doc.text('SALES RECEIPT', pageWidth / 2, yPos, { align: 'center' });
+                doc.text('PAYMENT RECEIPT', pageWidth / 2, yPos, { align: 'center' });
                 yPos += 8;
 
                 // Receipt details
@@ -492,7 +492,7 @@
                 yPos += 6;
                 
                 // Customer name - ITALIC
-                doc.setFont(undefined, 'italic'); // Changed to italic
+                doc.setFont(undefined, 'italic');
                 doc.setFontSize(12);
                 const customerName = document.getElementById('customerName').value;
                 const customerLines = doc.splitTextToSize(customerName, contentWidth);
@@ -562,7 +562,7 @@
                 // Generate verification code
                 const verificationCode = generateVerificationCode(receiptNum, amount, dateInput);
                 
-                // Verification code (NO QR CODE)
+                // Verification code
                 doc.setFontSize(7);
                 doc.setFont(undefined, 'normal');
                 doc.text('Verification Code:', pageWidth / 2, yPos, { align: 'center' });
@@ -577,7 +577,7 @@
                 doc.line(margin, yPos, pageWidth - margin, yPos);
                 yPos += 6;
 
-                // Signature - ADDED BACK
+                // Signature
                 doc.setFont(undefined, 'italic');
                 doc.setFontSize(10);
                 const salesperson = document.getElementById('salespersonName').value;
@@ -621,7 +621,7 @@
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                 try {
                     await navigator.share({
-                        title: 'Sales Receipt',
+                        title: 'Payment Receipt',
                         text: `Receipt for ${document.getElementById('customerName').value}`,
                         files: [file]
                     });
